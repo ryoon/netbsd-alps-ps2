@@ -52,8 +52,10 @@ __KERNEL_RCSID(0, "$NetBSD: elantech.c,v 1.6 2014/02/25 18:30:10 pooka Exp $");
 /* #define ALPS_DEBUG */
 
 static int alps_touchpad_xy_unprecision_nodenum;
+static int alps_trackstick_xy_precision_nodenum;
 
 static int alps_touchpad_xy_unprecision = 2;
+static int alps_trackstick_xy_precision = 1;
 
 static void pms_alps_input_v7(void *, int);
 static void pms_alps_input_v2(void *, int);
@@ -71,7 +73,8 @@ pms_sysctl_alps_verify(SYSCTLFN_ARGS)
 	if (error || newp == NULL)
 		return error;
 
-	if (node.sysctl_num == alps_touchpad_xy_unprecision_nodenum) {
+	if (node.sysctl_num == alps_touchpad_xy_unprecision_nodenum ||
+		node.sysctl_num == alps_trackstick_xy_precision_nodenum) {
 		if (t < 0 || t > 7)
 			return EINVAL;
 	} else
@@ -100,14 +103,25 @@ pms_sysctl_alps(struct sysctllog **clog)
 	if ((rc = sysctl_createv(clog, 0, NULL, &node,
 		CTLFLAG_PERMANENT | CTLFLAG_READWRITE,
 		CTLTYPE_INT, "touchpad_xy_precision_shift",
-		SYSCTL_DESCR("X/Y-axis precision shift value"),
+		SYSCTL_DESCR("Touchpad X/Y-axis precision shift value"),
 		pms_sysctl_alps_verify, 0,
 		&alps_touchpad_xy_unprecision,
 		0, CTL_HW, root_num, CTL_CREATE,
 		CTL_EOL)) != 0)
 			goto err;
-
 	alps_touchpad_xy_unprecision_nodenum = node->sysctl_num;
+
+	if ((rc = sysctl_createv(clog, 0, NULL, &node,
+		CTLFLAG_PERMANENT | CTLFLAG_READWRITE,
+		CTLTYPE_INT, "tackstick_xy_precision_shift",
+		SYSCTL_DESCR("Trackstick X/Y-axis precision value"),
+		pms_sysctl_alps_verify, 0,
+		&alps_trackstick_xy_precision,
+		0, CTL_HW, root_num, CTL_CREATE,
+		CTL_EOL)) != 0)
+			goto err;
+	alps_trackstick_xy_precision_nodenum = node->sysctl_num;
+
 	return;
 
 err:
@@ -790,8 +804,8 @@ pms_alps_decode_trackstick_packet_v7(struct pms_softc *psc)
 	z = (int8_t)((psc->packet[5] & 0x3f) |
 		((psc->packet[3] & 0x80) >> 1));
 
-	dx = x * 1;
-	dy = y * 1;
+	dx = x * alps_trackstick_xy_precision;
+	dy = y * alps_trackstick_xy_precision;
 	dz = z * 1;
 
 	left = psc->packet[1] & 0x01;
