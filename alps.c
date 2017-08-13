@@ -51,9 +51,9 @@ __KERNEL_RCSID(0, "$NetBSD: elantech.c,v 1.6 2014/02/25 18:30:10 pooka Exp $");
 
 /* #define ALPS_DEBUG */
 
-static int alps_xy_unprecision_nodenum;
+static int alps_touchpad_xy_unprecision_nodenum;
 
-static int alps_xy_unprecision = 2;
+static int alps_touchpad_xy_unprecision = 2;
 
 static void pms_alps_input_v7(void *, int);
 static void pms_alps_input_v2(void *, int);
@@ -71,7 +71,7 @@ pms_sysctl_alps_verify(SYSCTLFN_ARGS)
 	if (error || newp == NULL)
 		return error;
 
-	if (node.sysctl_num == alps_xy_unprecision_nodenum) {
+	if (node.sysctl_num == alps_touchpad_xy_unprecision_nodenum) {
 		if (t < 0 || t > 7)
 			return EINVAL;
 	} else
@@ -99,15 +99,15 @@ pms_sysctl_alps(struct sysctllog **clog)
 
 	if ((rc = sysctl_createv(clog, 0, NULL, &node,
 		CTLFLAG_PERMANENT | CTLFLAG_READWRITE,
-		CTLTYPE_INT, "xy_precision_shift",
+		CTLTYPE_INT, "touchpad_xy_precision_shift",
 		SYSCTL_DESCR("X/Y-axis precision shift value"),
 		pms_sysctl_alps_verify, 0,
-		&alps_xy_unprecision,
+		&alps_touchpad_xy_unprecision,
 		0, CTL_HW, root_num, CTL_CREATE,
 		CTL_EOL)) != 0)
 			goto err;
 
-	alps_xy_unprecision_nodenum = node->sysctl_num;
+	alps_touchpad_xy_unprecision_nodenum = node->sysctl_num;
 	return;
 
 err:
@@ -282,7 +282,7 @@ pms_alps_start_command_mode(struct pms_softc *psc)
 	aprint_debug_dev(psc->sc_dev, "ALPS Firmware ID: 0x%x 0x%X 0x%X\n",
 		resp[0], resp[1], resp[2]);
 
-	if (resp[0] != 0x88 || (resp[1] & 0xf0) != 0xb0)
+	if (resp[0] != 0x88 || (resp[1] & __BITS(7, 4)) != 0xb0)
 		return EINVAL;
 
 	return 0;
@@ -360,19 +360,19 @@ pms_alps_set_address(pckbport_tag_t tag, pckbport_slot_t slot, uint16_t reg)
 		goto err;
 
 	/* Set address */
-	nibble = (reg >> 12) & 0x0f;
+	nibble = (reg >> 12) & __BITS(3, 0);
 	if ((res = pms_alps_cm_write_nibble(tag, slot, nibble)) != 0) {
 		goto err;
 	}
-	nibble = (reg >> 8) & 0x0f;
+	nibble = (reg >> 8) & __BITS(3, 0);
 	if ((res = pms_alps_cm_write_nibble(tag, slot, nibble)) != 0) {
 		goto err;
 	}
-	nibble = (reg >> 4) & 0x0f;
+	nibble = (reg >> 4) & __BITS(3, 0);
 	if ((res = pms_alps_cm_write_nibble(tag, slot, nibble)) != 0) {
 		goto err;
 	}
-	nibble = (reg >> 0) & 0x0f;
+	nibble = (reg >> 0) & __BITS(3, 0);
 	if ((res = pms_alps_cm_write_nibble(tag, slot, nibble)) != 0) {
 		goto err;
 	}
@@ -429,12 +429,12 @@ pms_alps_cm_write_1(pckbport_tag_t tag, pckbport_slot_t slot, uint16_t reg,
 	if ((res = pms_alps_set_address(tag, slot, reg)) != 0)
 		goto err;
 
-	nibble = (val >> 4) & 0x0f;
+	nibble = __SHIFTOUT(val, __BITS(7, 4));
 	if ((res = pms_alps_cm_write_nibble(tag, slot, nibble)) != 0) {
 		goto err;
 	}
 
-	nibble = (val >> 0) & 0x0f;
+	nibble = __SHIFTOUT(val, __BITS(3, 0));
 	if ((res = pms_alps_cm_write_nibble(tag, slot, nibble)) != 0) {
 		goto err;
 	}
@@ -639,12 +639,12 @@ pms_alps_init_v7(struct pms_softc *psc)
 		goto err;
 	}
 	/* Do not set address before this, so do not use pms_cm_write_1() */
-	val = val | 0x02;
-	nibble = (val >> 4) & 0x0f;
+	val = val | __BIT(1);
+	nibble = __SHIFTOUT(val, __BITS(7, 4));
 	if ((res = pms_alps_cm_write_nibble(psc->sc_kbctag, psc->sc_kbcslot, nibble)) != 0) {
 		goto err;
 	}
-	nibble = (val >> 0) & 0x0f;
+	nibble = __SHIFTOUT(val, __BITS(3, 0));
 	if ((res = pms_alps_cm_write_nibble(psc->sc_kbctag, psc->sc_kbcslot, nibble)) != 0) {
 		goto err;
 	}
@@ -690,7 +690,7 @@ pms_alps_probe_init(void *opaque)
 		goto err;
 
 	/* Determine protocol version */
-	if ((ecsig[0] == 0x88) && ((ecsig[1] & 0xf0) == 0xb0)) {
+	if ((ecsig[0] == 0x88) && (__SHIFTOUT(ecsig[1], __BITS(7, 4)) == 0x0b)) {
 		/* V7 device in Toshiba dynabook R63/PS */
 		sc->version = ALPS_PROTO_V7;
 	} else if ((e7sig[0] == 0x73) && (e7sig[1] == 0x02) &&
@@ -937,8 +937,8 @@ pms_alps_decode_touchpad_packet_v7(struct pms_softc *psc)
 		dx1 = (int16_t)(cur_x1 - sc->last_x1);
 		dy1 = (int16_t)(sc->last_y1 - cur_y1);
 
-		dx1 = dx1 >> alps_xy_unprecision;
-		dy1 = dy1 >> alps_xy_unprecision;
+		dx1 = dx1 >> alps_touchpad_xy_unprecision;
+		dy1 = dy1 >> alps_touchpad_xy_unprecision;
 	}
 
 	/* Allow finger detouch during drag and drop */
@@ -1021,8 +1021,8 @@ pms_alps_decode_touchpad_packet_v2(struct pms_softc *psc)
 		dx = (cur_x - sc->last_x1);
 		dy = (sc->last_y1 - cur_y);
 
-		dx = dx >> alps_xy_unprecision;
-		dy = dy >> alps_xy_unprecision;
+		dx = dx >> alps_touchpad_xy_unprecision;
+		dy = dy >> alps_touchpad_xy_unprecision;
 	}
 
 	s = spltty();
