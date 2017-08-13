@@ -430,7 +430,7 @@ err:
 	return res;
 }
 
-/* Not used practically */
+/* Not used practically for initialization */
 static int
 pms_alps_get_resolution_v7(struct pms_softc *psc)
 {
