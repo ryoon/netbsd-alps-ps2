@@ -291,6 +291,9 @@ err:
 	return res;
 }
 
+/*
+ * End command mode
+ */
 static int
 pms_alps_end_command_mode(struct pms_softc *psc)
 {
@@ -309,6 +312,9 @@ err:
 	return res;
 }
 
+/*
+ * Write nibble (4-bit) data
+ */
 static int
 pms_alps_cm_write_nibble(pckbport_tag_t tag, pckbport_slot_t slot, uint8_t nibble)
 {
@@ -339,6 +345,9 @@ pms_alps_cm_write_nibble(pckbport_tag_t tag, pckbport_slot_t slot, uint8_t nibbl
 	return res;
 }
 
+/*
+ * Set an register address for read and write
+ */
 static int
 pms_alps_set_address(pckbport_tag_t tag, pckbport_slot_t slot, uint16_t reg)
 {
@@ -374,6 +383,9 @@ err:
 	return res;
 }
 
+/*
+ * Read one byte from register
+ */
 static int
 pms_alps_cm_read_1(pckbport_tag_t tag, pckbport_slot_t slot, uint16_t reg,
 	uint8_t *val)
@@ -404,6 +416,9 @@ err:
 	return res;
 }
 
+/*
+ * Write one byte to register
+ */
 static int
 pms_alps_cm_write_1(pckbport_tag_t tag, pckbport_slot_t slot, uint16_t reg,
 	uint8_t val)
@@ -430,25 +445,30 @@ err:
 	return res;
 }
 
-/* Not used practically for initialization */
+/*
+ * Not used practically for initialization
+ */
 static int
 pms_alps_get_resolution_v7(struct pms_softc *psc)
 {
+#if 0
 	struct alps_softc *sc = &psc->u.alps;
+#endif
 	pckbport_tag_t tag = psc->sc_kbctag;
 	pckbport_slot_t slot = psc->sc_kbcslot;
 
 	int res;
 	uint8_t ret;
+#if 0
 	uint32_t x_pitch, y_pitch;
 	uint32_t x_elec, y_elec;
 	uint32_t x_phy, y_phy;
-
+#endif
 	/* X/Y pitch */
 	if ((res = pms_alps_cm_read_1(tag, slot, 0xc397, &ret)) != 0) {
 		goto err;
 	}
-
+#if 0
 	/* X pitch */
 	x_pitch = __SHIFTOUT(ret, __BITS(7, 4)); /* Higher 4-bit */
 	x_pitch = x_pitch * 2 + 50; /* Unit = 0.1mm */
@@ -478,7 +498,7 @@ pms_alps_get_resolution_v7(struct pms_softc *psc)
 	/* X/Y resolution (unit) */
 	sc->res_x = 0xfff * 10 / x_phy;
 	sc->res_y = 0x7ff * 10 / y_phy;
-
+#endif
 	return res;
 
 err:
